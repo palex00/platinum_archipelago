@@ -53,6 +53,7 @@ appropriately.
 * Version number to title screen.
 * A QOL menu when pressing the select button.
 * An option to prevent the PopTracker from spoiling optional roadblocks, and client support for the option.
+* Generation-time validation that rejects impossible Route 210 lower and Route 215 barricade combinations: when HMs are not randomized and both barricades require a late HM (Surf, Waterfall, Rock Climb or Strength) or are impassable, Celestic Town — and therefore the vanilla HM03 Surf — is unreachable.
 ### Changed
 * In-game game options option is now validated before generation.
 * Some evolution stones have been key-itemified, and are no longer consumed when used.

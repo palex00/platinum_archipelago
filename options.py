@@ -1242,6 +1242,21 @@ slot_data_options: Sequence[str] = [
     "goal",
 ]
 
+def _barricade_requires_late_hm(value: int) -> bool:
+    """Whether a Route 210 lower / Route 215 barricade value can only be crossed
+    with Surf, Waterfall, Rock Climb or Strength, or cannot be crossed at all.
+
+    The value is a bitfield (see Route210LowerBarricade / Route215Barricade): the
+    bottom three bits are the map barricade (none, bicycle, rock climb, surf,
+    waterfall) and the next three are the object-event barricade (none, impassable,
+    cut, rock smash, strength, psyduck). Cut, Rock Smash, the bicycle and the
+    Secret Potion (Psyduck) are all obtainable early, so barricades needing only
+    those are fine; Surf, Waterfall, Rock Climb and Strength are the "late" HMs.
+    """
+    map_barricade = value & 0b111       # 0 none, 1 bicycle, 2 rock_climb, 3 surf, 4 waterfall
+    object_barricade = value >> 3       # 0 none, 1 impassable, 2 cut, 3 rock_smash, 4 strength, 5 psyduck
+    return map_barricade in (2, 3, 4) or object_barricade in (1, 4)
+
 @dataclass
 class PokemonPlatinumOptions(PerGameCommonOptions):
     goal: Goal
@@ -1354,6 +1369,32 @@ class PokemonPlatinumOptions(PerGameCommonOptions):
                 raise OptionError(f"cannot enable Pastoria barriers if Surf requires the Fen Badge and badges are not randomized.")
             if not (self.hms or self.key_items):
                 raise OptionError(f"cannot enable Pastoria barriers if HMs, Key Items, Fly Locations are not randomized.")
+        # The Route 210 lower barricade and the Route 215 barricade are the two
+        # entrances to the Route 210 junction, which is the only land route to
+        # Celestic Town -- where HM03 Surf is obtained in the vanilla game, and
+        # Surf is required to reach most of the region. If HMs are not randomized
+        # and BOTH of these barricades require Surf, Waterfall, Rock Climb or
+        # Strength (or are impassable), then Surf is trapped behind the very
+        # barricades it would be needed to cross, and Celestic Town can never be
+        # reached. The area can also be entered via a fly location item or one of
+        # the inter-city boats, so this is only impossible when none of those are
+        # available. (Enabling any of them may still not be enough on its own, but
+        # we only raise here when the seed is guaranteed to be unwinnable.)
+        if not self.hms \
+                and self.randomize_fly_items.value == RandomizeFlyItems.option_off \
+                and self.boat_canalave_pastoria.value == BoatCanalavePastoria.option_off \
+                and self.boat_canalave_snowpoint.value == BoatCanalaveSnowpoint.option_off \
+                and self.boat_pastoria_snowpoint.value == BoatPastoriaSnowpoint.option_off \
+                and _barricade_requires_late_hm(self.route_210_lower_barricade.value) \
+                and _barricade_requires_late_hm(self.route_215_barricade.value):
+            raise OptionError(
+                "the Route 210 lower barricade and the Route 215 barricade both require Surf, "
+                "Waterfall, Rock Climb or Strength (or are impassable). Because HMs are not "
+                "randomized, HM03 Surf is only obtainable in Celestic Town, which lies beyond "
+                "both of these barricades, so it can never be reached. Randomize HMs, set at "
+                "least one of these barricades to be passable with the Bicycle, Cut, Rock Smash "
+                "or the Secret Potion (Psyduck), randomize fly locations, or enable one of the "
+                "inter-city boats.")
         if not (self.overworlds or self.hiddens or self.npc_gifts or self.key_items or self.poketch_apps):
             raise OptionError(f"at least one of overworlds, hiddens, npc_gifts, key_items, or poketch apps must be enabled")
 
